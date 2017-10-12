@@ -38,6 +38,9 @@ from ryu.ofproto import nx_actions
 from ryu import utils
 
 import logging
+
+import hashlib
+
 LOG = logging.getLogger('ryu.ofproto.ofproto_v1_0_parser')
 
 _MSG_PARSERS = {}
@@ -189,7 +192,6 @@ class OFPMatch(StringifyMixin):
     ================ =============== ==================================
 
     Example::
-
         >>> # compose
         >>> match = parser.OFPMatch(
         ...     in_port=1,
@@ -333,6 +335,7 @@ class OFPMatch(StringifyMixin):
         return ~self.wildcards & wc
 
     def serialize(self, buf, offset):
+        print('OFPMatch have not Auth! ')
         msg_pack_into(ofproto.OFP_MATCH_PACK_STR, buf, offset,
                       self.wildcards, self.in_port, self.dl_src,
                       self.dl_dst, self.dl_vlan, self.dl_vlan_pcp,
@@ -360,8 +363,227 @@ class OFPMatch(StringifyMixin):
     @classmethod
     def from_jsondict(cls, dict_):
         return cls(**dict_)
+############################################################################################################################
+####
+class OFPMatchAuth(StringifyMixin):
+    """
+    Flow Match Structure
 
+    This class is implementation of the flow match structure having
+    compose/query API.
 
+    ================ ==================================================
+    Attribute        Description
+    ================ ==================================================
+    wildcards        Wildcard fields.
+    (match fields)   For the available match fields,
+                     please refer to the following.
+    ================ ==================================================
+
+    ================ =============== ==================================
+    Argument         Value           Description
+    ================ =============== ==================================
+    in_port          Integer 16bit   Switch input port.
+    dl_src           MAC address     Ethernet source address.
+    dl_dst           MAC address     Ethernet destination address.
+    dl_vlan          Integer 16bit   Input VLAN id.
+    dl_vlan_pcp      Integer 8bit    Input VLAN priority.
+    dl_type          Integer 16bit   Ethernet frame type.
+    nw_tos           Integer 8bit    IP ToS (actually DSCP field, 6 bits).
+    nw_proto         Integer 8bit    IP protocol or lower 8 bits of
+                                     ARP opcode.
+    nw_src           IPv4 address    IP source address.
+    nw_dst           IPv4 address    IP destination address.
+    tp_src           Integer 16bit   TCP/UDP source port.
+    tp_dst           Integer 16bit   TCP/UDP destination port.
+    nw_src_mask      Integer 8bit    IP source address mask
+                                     specified as IPv4 address prefix.
+    nw_dst_mask      Integer 8bit    IP destination address mask
+                                     specified as IPv4 address prefix.
+    ================ =============== ==================================
+
+    Example::
+
+        >>> # compose
+        >>> match = parser.OFPMatch(
+        ...     in_port=1,
+        ...     dl_type=0x0800,
+        ...     dl_src='aa:bb:cc:dd:ee:ff',
+        ...     nw_src='192.168.0.1')
+        >>> # query
+        >>> if 'nw_src' in match:
+        ...     print match['nw_src']
+        ...
+        '192.168.0.1'
+    """
+    def __init__(self, wildcards=None, in_port=None, dl_src=None, dl_dst=None,
+                 dl_vlan=None, dl_vlan_pcp=None, dl_type=None, nw_tos=None,
+                 nw_proto=None, nw_src=None, nw_dst=None,
+                 tp_src=None, tp_dst=None, nw_src_mask=32, nw_dst_mask=32):
+        super(OFPMatchAuth, self).__init__()
+        wc = ofproto.OFPFW_ALL
+        if in_port is None:
+            self.in_port = 0
+        else:
+            wc &= ~ofproto.OFPFW_IN_PORT
+            self.in_port = in_port
+
+        if dl_src is None:
+            self.dl_src = mac.DONTCARE
+        else:
+            wc &= ~ofproto.OFPFW_DL_SRC
+            if (isinstance(dl_src, (six.text_type, str)) and
+                    netaddr.valid_mac(dl_src)):
+                dl_src = addrconv.mac.text_to_bin(dl_src)
+            if dl_src == 0:
+                self.dl_src = mac.DONTCARE
+            else:
+                self.dl_src = dl_src
+
+        if dl_dst is None:
+            self.dl_dst = mac.DONTCARE
+        else:
+            wc &= ~ofproto.OFPFW_DL_DST
+            if (isinstance(dl_dst, (six.text_type, str)) and
+                    netaddr.valid_mac(dl_dst)):
+                dl_dst = addrconv.mac.text_to_bin(dl_dst)
+            if dl_dst == 0:
+                self.dl_dst = mac.DONTCARE
+            else:
+                self.dl_dst = dl_dst
+
+        if dl_vlan is None:
+            self.dl_vlan = 0
+        else:
+            wc &= ~ofproto.OFPFW_DL_VLAN
+            self.dl_vlan = dl_vlan
+
+        if dl_vlan_pcp is None:
+            self.dl_vlan_pcp = 0
+        else:
+            wc &= ~ofproto.OFPFW_DL_VLAN_PCP
+            self.dl_vlan_pcp = dl_vlan_pcp
+
+        if dl_type is None:
+            self.dl_type = 0
+        else:
+            wc &= ~ofproto.OFPFW_DL_TYPE
+            self.dl_type = dl_type
+
+        if nw_tos is None:
+            self.nw_tos = 0
+        else:
+            wc &= ~ofproto.OFPFW_NW_TOS
+            self.nw_tos = nw_tos
+
+        if nw_proto is None:
+            self.nw_proto = 0
+        else:
+            wc &= ~ofproto.OFPFW_NW_PROTO
+            self.nw_proto = nw_proto
+
+        if nw_src is None:
+            self.nw_src = 0
+        else:
+            wc &= (32 - nw_src_mask) << ofproto.OFPFW_NW_SRC_SHIFT \
+                | ~ofproto.OFPFW_NW_SRC_MASK
+            if not isinstance(nw_src, int):
+                nw_src = ip.ipv4_to_int(nw_src)
+            self.nw_src = nw_src
+
+        if nw_dst is None:
+            self.nw_dst = 0
+        else:
+            wc &= (32 - nw_dst_mask) << ofproto.OFPFW_NW_DST_SHIFT \
+                | ~ofproto.OFPFW_NW_DST_MASK
+            if not isinstance(nw_dst, int):
+                nw_dst = ip.ipv4_to_int(nw_dst)
+            self.nw_dst = nw_dst
+
+        if tp_src is None:
+            self.tp_src = 0
+        else:
+            wc &= ~ofproto.OFPFW_TP_SRC
+            self.tp_src = tp_src
+
+        if tp_dst is None:
+            self.tp_dst = 0
+        else:
+            wc &= ~ofproto.OFPFW_TP_DST
+            self.tp_dst = tp_dst
+
+        if wildcards is None:
+            self.wildcards = wc
+        else:
+            self.wildcards = wildcards
+
+    def __getitem__(self, name):
+        if not isinstance(name, str):
+            raise KeyError(name)
+        elif name == 'nw_src_mask':
+            _m = 32 - ((self.wildcards & ofproto.OFPFW_NW_SRC_MASK) >>
+                       ofproto.OFPFW_NW_SRC_SHIFT)
+            return 0 if _m < 0 else _m
+        elif name == 'nw_dst_mask':
+            _m = 32 - ((self.wildcards & ofproto.OFPFW_NW_DST_MASK) >>
+                       ofproto.OFPFW_NW_DST_SHIFT)
+            return 0 if _m < 0 else _m
+        elif name == 'wildcards':
+            return self.wildcards
+
+        wc = getattr(ofproto, 'OFPFW_' + name.upper(), 0)
+        if ~self.wildcards & wc:
+            value = getattr(self, name)
+            if name in ['dl_src', 'dl_dst']:
+                value = addrconv.mac.bin_to_text(value)
+            elif name in ['nw_src', 'nw_dst']:
+                value = ip.ipv4_to_str(value)
+            return value
+        else:
+            raise KeyError(name)
+
+    def __contains__(self, name):
+        wc = getattr(ofproto, 'OFPFW_' + name.upper(), 0)
+        return ~self.wildcards & wc
+
+    def serialize(self, buf, offset):
+        str_match = (str(self.wildcards)+ str(self.in_port)+ str(self.dl_src)+
+         str(self.dl_dst)+ str(self.dl_vlan)+ str(self.dl_vlan_pcp)+
+         str(self.dl_type)+ str(self.nw_tos)+ str(self.nw_proto)+
+         str(self.nw_src)+ str(self.nw_dst)+ str(self.tp_src)+ str(self.tp_dst))
+        str_match_mac = hashlib.md5(str_match).hexdigest()
+        pad1 = str_match_mac[0]
+        pad2 = str_match_mac[1:3]
+        print('OFPMatch have Auth ,str md5 info: ',str_match,str_match_mac)
+        msg_pack_into(ofproto.OFP_MATCH_PACK_STR_AUTH, buf, offset,
+                      self.wildcards, self.in_port, self.dl_src,
+                      self.dl_dst, self.dl_vlan, self.dl_vlan_pcp,pad1,
+                      self.dl_type, self.nw_tos, self.nw_proto,pad2,
+                      self.nw_src, self.nw_dst, self.tp_src, self.tp_dst)
+
+    @classmethod
+    def parse(cls, buf, offset):
+        match = struct.unpack_from(ofproto.OFP_MATCH_PACK_STR,
+                                   buf, offset)
+        return cls(*match)
+
+    def to_jsondict(self):
+        fields = {}
+        # copy values to avoid original values conversion
+        for k, v in self.__dict__.items():
+            if k in ['dl_src', 'dl_dst']:
+                fields[k] = addrconv.mac.bin_to_text(v)
+            elif k in ['nw_src', 'nw_dst']:
+                fields[k] = ip.ipv4_to_str(v)
+            else:
+                fields[k] = v
+        return {self.__class__.__name__: fields}
+
+    @classmethod
+    def from_jsondict(cls, dict_):
+        return cls(**dict_)
+######
+########################################################################################################################################
 class OFPActionHeader(StringifyMixin):
     _base_attributes = ['type', 'len']
 
@@ -923,7 +1145,7 @@ class OFPFlowStats(StringifyMixin):
             ofproto.OFP_FLOW_STATS_0_PACK_STR, buf, offset)
         offset += ofproto.OFP_FLOW_STATS_0_SIZE
 
-        flow_stats.match = OFPMatch.parse(buf, offset)
+        flow_stats.match = OFPMatchAuth.parse(buf, offset)
         offset += ofproto.OFP_MATCH_SIZE
 
         (flow_stats.duration_sec,
@@ -1987,7 +2209,7 @@ class OFPFlowRemoved(MsgBase):
         msg = super(OFPFlowRemoved, cls).parser(datapath, version, msg_type,
                                                 msg_len, xid, buf)
 
-        msg.match = OFPMatch.parse(msg.buf, ofproto.OFP_HEADER_SIZE)
+        msg.match = OFPMatchAuth.parse(msg.buf, ofproto.OFP_HEADER_SIZE)
 
         (msg.cookie,
          msg.priority,
@@ -2739,7 +2961,7 @@ class OFPFlowMod(MsgBase):
                  buffer_id=0xffffffff, out_port=ofproto.OFPP_NONE,
                  flags=0, actions=None):
         super(OFPFlowMod, self).__init__(datapath)
-        self.match = OFPMatch() if match is None else match
+        self.match = OFPMatchAuth() if match is None else match
         self.cookie = cookie
         self.command = command
         self.idle_timeout = idle_timeout
@@ -2773,7 +2995,7 @@ class OFPFlowMod(MsgBase):
             datapath, version, msg_type, msg_len, xid, buf)
         offset = ofproto.OFP_HEADER_SIZE
 
-        msg.match = OFPMatch.parse(msg.buf, offset)
+        msg.match = OFPMatchAuth.parse(msg.buf, offset)
         offset += ofproto.OFP_MATCH_SIZE
 
         (msg.cookie, msg.command, msg.idle_timeout, msg.hard_timeout,

@@ -206,7 +206,7 @@ def to_match(dp, attrs):
         else:
             LOG.error("unknown match name %s, %s, %d", key, value, len(key))
 
-    match = dp.ofproto_parser.OFPMatch(
+    match = dp.ofproto_parser.OFPMatchAuth(
         wildcards, in_port, dl_src, dl_dst, dl_vlan, dl_vlan_pcp,
         dl_type, nw_tos, nw_proto, nw_src, nw_dst, tp_src, tp_dst)
 
@@ -520,7 +520,7 @@ def mod_flow_entry(dp, flow, cmd):
 
 
 def delete_flow_entry(dp):
-    match = dp.ofproto_parser.OFPMatch(
+    match = dp.ofproto_parser.OFPMatchAuth(
         dp.ofproto.OFPFW_ALL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
     flow_mod = dp.ofproto_parser.OFPFlowMod(

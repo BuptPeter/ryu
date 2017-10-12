@@ -286,6 +286,13 @@ OFP_VLAN_NONE = 0xffff
 _OFP_MATCH_PACK_STR = 'IH' + OFP_ETH_ALEN_STR + 's' + OFP_ETH_ALEN_STR + \
                       'sHBxHBB2xIIHH'
 OFP_MATCH_PACK_STR = '!' + _OFP_MATCH_PACK_STR
+
+#######################################################################
+_OFP_MATCH_PACK_STR_AUTH = 'IH' + OFP_ETH_ALEN_STR + 's' + OFP_ETH_ALEN_STR + \
+                      'sHBsHBB2sIIHH'
+OFP_MATCH_PACK_STR_AUTH = '!' + _OFP_MATCH_PACK_STR_AUTH
+#######################################################################
+
 OFP_MATCH_SIZE = 40
 assert calcsize(OFP_MATCH_PACK_STR) == OFP_MATCH_SIZE
 

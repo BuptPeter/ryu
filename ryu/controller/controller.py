@@ -407,7 +407,7 @@ class Datapath(ofproto_protocol.ProtocolDesc):
             self.send_nxt_set_flow_format(flow_format)
         if flow_format == ofproto_v1_0.NXFF_OPENFLOW10:
             match_tuple = rule.match_tuple()
-            match = self.ofproto_parser.OFPMatch(*match_tuple)
+            match = self.ofproto_parser.OFPMatchAuth(*match_tuple)
             flow_mod = self.ofproto_parser.OFPFlowMod(
                 self, match, cookie, command, idle_timeout, hard_timeout,
                 priority, buffer_id, out_port, flags, actions)

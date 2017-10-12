@@ -38,8 +38,9 @@ class SimpleSwitch(app_manager.RyuApp):
 
     def add_flow(self, datapath, in_port, dst, actions):
         ofproto = datapath.ofproto
+        print('simple_seitch /add_flow')
 
-        match = datapath.ofproto_parser.OFPMatch(
+        match = datapath.ofproto_parser.OFPMatchAuth(
             in_port=in_port, dl_dst=haddr_to_bin(dst))
 
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -51,6 +52,8 @@ class SimpleSwitch(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        print('simple_seitch /_packet_in_handler')
+
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -94,6 +97,8 @@ class SimpleSwitch(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def _port_status_handler(self, ev):
+        print('simple_seitch /_port_status_handler')
+
         msg = ev.msg
         reason = msg.reason
         port_no = msg.desc.port_no
